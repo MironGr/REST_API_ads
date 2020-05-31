@@ -1,0 +1,8 @@
+/.idea
+/venv
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.env
+exapmle_2.db
