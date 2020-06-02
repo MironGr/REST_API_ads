@@ -15,6 +15,7 @@ from db import (
     get_db,
 )
 
+import random
 
 app = Flask(__name__)
 app.teardown_appcontext(close_db)
@@ -314,244 +315,46 @@ def user_get(id):
 
 @app.route('/ads', methods=['GET'])
 def ads():
-    # Тело запроса (Body - row - TEXT)
-    # Query string:
-    # seller_id: int?
-    # tags: str?
-    # make: str?
-    # model: str?
-    request_data = request.data.decode("utf-8")
-    request_list = request_data.split()
-    data = {}
-    try:
-        request_list.remove('Query')
-        request_list.remove('string:')
-    except ValueError:
-        pass
-    for elem in request_list:
-        if elem == 'seller_id:':
-            seller_id_index = request_list.index(elem) + 1
-            data['seller_id'] = request_list[seller_id_index]
-            request_list.remove(elem)
-            request_list.remove(request_list[seller_id_index - 1])
-        if elem == 'make:':
-            make_index = request_list.index(elem) + 1
-            data['make'] = request_list[make_index]
-            request_list.remove(elem)
-            request_list.remove(request_list[make_index - 1])
-    for elem in request_list:
-        if elem == 'model:':
-            model_index = request_list.index(elem) + 1
-            data['model'] = request_list[model_index]
-            request_list.remove(elem)
-            request_list.remove(request_list[model_index - 1])
-    for elem in request_list:
-        if elem == 'tags:':
-            request_list.remove(elem)
-    if request_list:
-        row_tags = ''.join(elem for elem in request_list)
-        list_tags = row_tags.split(',')
-        data['tags'] = list_tags
-
-    get_ads = f"""
-        SELECT DISTINCT ad.id, 
-            ad.seller_id, 
-            ad.title, 
-            ad.date, 
-            t.name, 
-            c.make, 
-            c.model,
-            col.id,
-            col.name,
-            col.hex,
-            c.mileage,
-            c.num_owners,
-            c.reg_number,
-            i.title,
-            i.url
-        FROM ad 
-            JOIN adtag ON ad.id = adtag.ad_id
-            JOIN tag AS t ON adtag.tag_id = t.id
-            JOIN car AS c ON ad.car_id = c.id
-            JOIN carcolor ON c.id = carcolor.car_id
-            JOIN color AS col ON carcolor.color_id = col.id
-            JOIN image AS i ON c.id = i.car_id """
-
-    if data.get('seller_id', None) and get_ads.find('WHERE') != -1:
-        get_param_1 = f"""
-            AND ad.seller_id = {data.get('seller_id')} """
-        get_ads = get_ads + get_param_1
-    elif data.get('seller_id', None) and get_ads.find('WHERE') == -1:
-        get_param_1 = f"""
-            WHERE ad.seller_id = {data.get('seller_id')} """
-        get_ads = get_ads + get_param_1
-
-    if data.get('make', None) and get_ads.find('WHERE') != -1:
-        get_param_2 = f"""
-            AND c.make = "{data.get('make', None)}" """
-        get_ads = get_ads + get_param_2
-    elif data.get('make', None) and get_ads.find('WHERE') == -1:
-        get_param_2 = f"""
-            WHERE c.make = "{data.get('make', None)}" """
-        get_ads = get_ads + get_param_2
-
-    if data.get('model', None) and get_ads.find('WHERE') != -1:
-        get_param_3 = f"""
-            AND c.model = "{data.get('model', None)}" """
-        get_ads = get_ads + get_param_3
-    elif data.get('model', None) and get_ads.find('WHERE') == -1:
-        get_param_3 = f"""
-            WHERE c.model = "{data.get('model', None)}" """
-        get_ads = get_ads + get_param_3
-
-    tags_list = data.get('tags', None)
-    if tags_list and get_ads.find('WHERE') != -1:
-        for tag in tags_list:
-            get_tags = f"""
-                AND t.name = "{tag}" """
-            get_ads = get_ads + get_tags
-
-    if tags_list and get_ads.find('WHERE') == -1:
-        get_tags = f"""
-            WHERE t.name = "{tags_list[0]}" """
-        get_ads = get_ads + get_tags
-        for tag in tags_list[1:]:
-            get_tags = f"""
-                AND t.name = "{tag}" """
-            get_ads = get_ads + get_tags
-
-    cur = get_db().cursor()
-    cur.execute(get_ads)
-    result_ads = []
-    for line in cur.fetchall():
-        result_ads.append(dict(line))
-
-    response = make_response(f"{result_ads}")
+    request_qs = dict(request.args)
+    seller_id = request_qs.get('seller_id', None)
+    tags = request_qs.get('tags', None)
+    make = request_qs.get('make', None)
+    model = request_qs.get('model', None)
+    result_ads = get_ads(seller_id=seller_id,
+                         tags=tags,
+                         make=make,
+                         model=model)
+    response = make_response(f"{result_ads}", 200)
     return response
 
 
-@app.route('/users/<int:id>/ads')
+@app.route('/users/<int:id>/ads', methods=['GET', 'POST'])
 def user_ads(id):
-    # Тело запроса (Body - row - TEXT)
-    # Query string:
-    # tags: str?
-    # make: str?
-    # model: str?
-    request_data = request.data.decode("utf-8")
-    request_list = request_data.split()
-    data = {}
-    try:
-        request_list.remove('Query')
-        request_list.remove('string:')
-    except ValueError:
-        pass
-    for elem in request_list:
-        if elem == 'make:':
-            make_index = request_list.index(elem) + 1
-            data['make'] = request_list[make_index]
-            request_list.remove(elem)
-            request_list.remove(request_list[make_index - 1])
-    for elem in request_list:
-        if elem == 'model:':
-            model_index = request_list.index(elem) + 1
-            data['model'] = request_list[model_index]
-            request_list.remove(elem)
-            request_list.remove(request_list[model_index - 1])
-    for elem in request_list:
-        if elem == 'tags:':
-            request_list.remove(elem)
-    if request_list:
-        row_tags = ''.join(elem for elem in request_list)
-        list_tags = row_tags.split(',')
-        data['tags'] = list_tags
-
-    get_ads = f"""
-        SELECT DISTINCT ad.id, 
-            ad.seller_id, 
-            ad.title, 
-            ad.date, 
-            t.name, 
-            c.make, 
-            c.model,
-            col.id,
-            col.name,
-            col.hex,
-            c.mileage,
-            c.num_owners,
-            c.reg_number,
-            i.title,
-            i.url
-        FROM ad 
-            JOIN adtag ON ad.id = adtag.ad_id
-            JOIN tag AS t ON adtag.tag_id = t.id
-            JOIN car AS c ON ad.car_id = c.id
-            JOIN carcolor ON c.id = carcolor.car_id
-            JOIN color AS col ON carcolor.color_id = col.id
-            JOIN image AS i ON c.id = i.car_id
-            WHERE ad.seller_id = {id} """
-
-    if data.get('make', None):
-        get_param_1 = f"""
-            AND c.make = "{data.get('make', None)}" """
-        get_ads = get_ads + get_param_1
-
-    if data.get('model', None):
-        get_param_2 = f"""
-            AND c.model = "{data.get('model', None)}" """
-        get_ads = get_ads + get_param_2
-
-    tags_list = data.get('tags', None)
-    if tags_list:
-        for tag in tags_list:
-            get_tags = f"""
-                AND t.name = "{tag}" """
-            get_ads = get_ads + get_tags
-
-    cur = get_db().cursor()
-    cur.execute(get_ads)
-    result_ads = []
-    for line in cur.fetchall():
-        result_ads.append(dict(line))
-
-    response = make_response(f"{result_ads}")
-    return response
+    if request.method == 'GET':
+        result_ads = get_ads(user_id=id)
+        response = make_response(f"{result_ads}")
+        return response
+    if request.method == 'POST' and auth_required():
+        user_id = session['user_id']
+        get_seller_id = f"""
+            SELECT id
+            FROM seller
+            WHERE account_id = {user_id}
+        """
+        cur = get_db().cursor()
+        cur.execute(get_seller_id)
+        seller_id = int(cur.fetchone()[0])
+        request_json = request.json
+        if seller_id:
+            response = post_ads(request_json, seller_id)
+            return make_response(f"{response}", 200)
 
 
 @app.route('/ads/<int:id>', methods=['GET', 'DELETE'])
 def get_ad(id):
-    cur = get_db().cursor()
     if request.method == 'GET':
-        get_ad = f"""
-                SELECT DISTINCT ad.id, 
-                    ad.seller_id, 
-                    ad.title, 
-                    ad.date, 
-                    t.name, 
-                    c.make, 
-                    c.model,
-                    col.id,
-                    col.name,
-                    col.hex,
-                    c.mileage,
-                    c.num_owners,
-                    c.reg_number,
-                    i.title,
-                    i.url
-                FROM ad 
-                    JOIN adtag ON ad.id = adtag.ad_id
-                    JOIN tag AS t ON adtag.tag_id = t.id
-                    JOIN car AS c ON ad.car_id = c.id
-                    JOIN carcolor ON c.id = carcolor.car_id
-                    JOIN color AS col ON carcolor.color_id = col.id
-                    JOIN image AS i ON c.id = i.car_id
-                    WHERE ad.id = {id}
-                    GROUP BY t.name"""
-        cur.execute(get_ad)
-        result_ad = []
-        for line in cur.fetchall():
-            result_ad.append(dict(line))
-
-        response = make_response(f"{result_ad}")
+        result_ads = get_ads(ad_id=id)
+        response = make_response(f"{result_ads}")
         return response
 
     if request.method == 'DELETE':
@@ -559,6 +362,7 @@ def get_ad(id):
                 DELETE FROM ad
                 WHERE ad.id = {id};
             """
+        cur = get_db().cursor()
         cur.execute(delete_ad)
         get_db().commit()
         response = make_response(f'Delete ad {id}', 200)
@@ -666,10 +470,218 @@ def auth_required():
     return session.get('user_id', None)
 
 
+def get_ads(seller_id=None,
+            user_id=None,
+            ad_id=None,
+            make=None,
+            model=None,
+            tags=None):
+
+    get_query = f"""
+        SELECT DISTINCT ad.id, 
+            ad.seller_id, 
+            ad.title, 
+            ad.date, 
+            t.name, 
+            c.make, 
+            c.model,
+            col.id,
+            col.name,
+            col.hex,
+            c.mileage,
+            c.num_owners,
+            c.reg_number,
+            i.title,
+            i.url
+        FROM ad 
+            JOIN adtag ON ad.id = adtag.ad_id
+            JOIN tag AS t ON adtag.tag_id = t.id
+            JOIN car AS c ON ad.car_id = c.id
+            JOIN carcolor ON c.id = carcolor.car_id
+            JOIN color AS col ON carcolor.color_id = col.id
+            JOIN image AS i ON c.id = i.car_id """
+
+    if user_id:
+        get_seller_id = f"""
+            SELECT s.id
+            FROM seller AS s
+                JOIN account AS a ON a.id = s.account_id
+            WHERE a.id = {user_id}
+        """
+        cur = get_db().cursor()
+        cur.execute(get_seller_id)
+        seller_id = int(cur.fetchone()[0])
+
+    if ad_id and get_query.find('WHERE') != -1:
+        get_ad_id = f"""
+            AND ad.id = {ad_id} """
+        get_query = get_query + get_ad_id
+    elif ad_id and get_query.find('WHERE') == -1:
+        get_ad_id = f"""
+            WHERE ad.id = {ad_id} """
+        get_query = get_query + get_ad_id
+
+    if seller_id and get_query.find('WHERE') != -1:
+        get_param_1 = f"""
+            AND ad.seller_id = {seller_id} """
+        get_query = get_query + get_param_1
+    elif seller_id and get_query.find('WHERE') == -1:
+        get_param_1 = f"""
+            WHERE ad.seller_id = {seller_id} """
+        get_query = get_query + get_param_1
+
+    if make and get_ad.find('WHERE') != -1:
+        get_param_2 = f"""
+            AND c.make = "{make}" """
+        get_query = get_query + get_param_2
+    elif make and get_query.find('WHERE') == -1:
+        get_param_2 = f"""
+            WHERE c.make = "{make}" """
+        get_query = get_query + get_param_2
+
+    if model and get_query.find('WHERE') != -1:
+        get_param_3 = f"""
+            AND c.model = "{model}" """
+        get_query = get_query + get_param_3
+    elif model and get_query.find('WHERE') == -1:
+        get_param_3 = f"""
+            WHERE c.model = "{model}" """
+        get_query = get_query + get_param_3
+
+    result_ads = []
+
+    if tags and get_query.find('WHERE') != -1:
+        tags_list = tags.split(',')
+        for tag in tags_list:
+            get_tags = f"""
+                AND t.name = "{tag.strip()}" """
+            get_ads_tag = get_query + get_tags
+            cur = get_db().cursor()
+            cur.execute(get_ads_tag)
+            for line in cur.fetchall():
+                result_ads.append(dict(line))
+        return result_ads
+    elif tags and get_query.find('WHERE') == -1:
+        tags_list = tags.split(',')
+        get_tags = f"""
+            WHERE t.name = "{tags_list[0]}" """
+        get_query = get_query + get_tags
+        for tag in tags_list:
+            get_tags = f"""
+                AND t.name = "{tag.strip()}" """
+            get_ads_tag = get_query + get_tags
+            cur = get_db().cursor()
+            cur.execute(get_ads_tag)
+            for line in cur.fetchall():
+                result_ads.append(dict(line))
+        return result_ads
+
+    cur = get_db().cursor()
+    cur.execute(get_query)
+
+    for line in cur.fetchall():
+        result_ads.append(dict(line))
+
+    return result_ads
+
+
+def post_ads(request_json, seller_id):
+    title = request_json.get('title')
+    tags = list(request_json.get('tags'))
+    car = request_json.get('car')
+    c_make = car.get('make')
+    c_model = car.get('model')
+    colors = list(car.get('colors'))
+    c_mileage = car.get('mileage')
+    c_num_owners = car.get('num_owners')
+    c_reg_number = car.get('reg_number')
+    values_list = []
+    for line in car.values():
+        values_list.append(line)
+    images_list = list(values_list[-1])
+    date = random.randint(0, 100000)
+    cur = get_db().cursor()
+    post_car = f"""
+        INSERT INTO car (make, model, mileage, num_owners, reg_number)
+        VALUES ("{c_make}", "{c_model}", {c_mileage}, {c_num_owners}, "{c_reg_number}");
+    """
+    cur.execute(post_car)
+    get_db().commit()
+
+    get_car_id = f"""
+        SELECT id
+        FROM car
+        WHERE reg_number = "{c_reg_number}"
+    """
+    cur.execute(get_car_id)
+    car_id = int(cur.fetchone()[0])
+
+    for image in images_list:
+        post_image = f"""
+            INSERT INTO image (title, url, car_id)
+            VALUES ("{image['title']}", "{image['url']}", {car_id});
+        """
+        cur.execute(post_image)
+        get_db().commit()
+
+    post_ad = f"""
+        INSERT INTO ad (title, date, seller_id, car_id)
+        VALUES ("{title}", {date}, {seller_id}, {car_id});
+    """
+    cur.execute(post_ad)
+    get_db().commit()
+
+    get_ad_id = f"""
+        SELECT id
+        FROM ad
+        WHERE car_id = {car_id}
+    """
+    cur.execute(get_ad_id)
+    ad_id = int(cur.fetchone()[0])
+
+    for tag in tags:
+        post_tag = f"""
+            INSERT INTO tag (name)
+            VALUES ("{tag}")
+        """
+        cur.execute(post_tag)
+        get_db().commit()
+
+        get_tag_id = f"""
+            SELECT id
+            FROM tag
+            WHERE name = "{tag}"
+        """
+        cur.execute(get_tag_id)
+        tag_id = int(cur.fetchone()[0])
+
+        post_adtag = f"""
+            INSERT INTO adtag (tag_id, ad_id)
+            VALUES ({tag_id}, {ad_id});
+        """
+        cur.execute(post_adtag)
+        get_db().commit()
+
+    for color_id in colors:
+        post_carcolor = f"""
+            INSERT INTO carcolor (color_id, car_id)
+            VALUES ({color_id}, {car_id});
+        """
+        cur.execute(post_carcolor)
+        get_db().commit()
+
+    response = {}
+    request_dict = dict(request_json)
+    response.update(request_dict)
+    response['date'] = date
+    response['seller_id'] = seller_id
+    return response
+
+
 @app.errorhandler(404)
 def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 
 if __name__ =='__main__':
-    app.run()
+    app.run(debug=True)

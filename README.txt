@@ -1,19 +1,7 @@
-Run через PyCharm src/app.py
+1. Установить requirements.txt
+2. Run src/app.py через PyCharm
 
 ___________
 
-
-Для '/ads'
-# Тело запроса (Body - row - TEXT)
-     Query string:
-     seller_id: int?
-     tags: str?
-     make: str?
-     model: str?
-
-Для '/users/<int:id>/ads'
-# Тело запроса (Body - row - TEXT)
-     Query string:
-     tags: str?
-     make: str?
-     model: str?
+функционал в следующем релизе:
+загрузка изображения / получение изображения / редактирование объявления
