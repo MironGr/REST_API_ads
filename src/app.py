@@ -53,7 +53,7 @@ def login():
     return 'You are logged!', 200
 
 
-@app.route('/auth/logout', methods=['GET'])
+@app.route('/auth/logout', methods=['POST'])
 def logout():
     session.clear()
     return 'Logout!', 200
@@ -446,13 +446,13 @@ def get_colors():
         response = make_response(f'{colors_list}', 200)
     if request.method == 'POST' and auth_required() and seller_id:
         get_colors_2 = f"""
-                    WHERE color.name = "{color_name}";
+                    WHERE name = "{color_name}";
                 """
         get_colors = get_colors + get_colors_2
         cur.execute(get_colors)
         color_sql = cur.fetchone()
         if color_sql:
-            response = make_response(f"{dict(color_sql)}", 200)
+            response = make_response(f"{color_sql}", 200)
         else:
             create_color = f"""
                 INSERT OR IGNORE INTO color (name, hex)
@@ -462,7 +462,7 @@ def get_colors():
             get_db().commit()
             cur.execute(get_colors)
             color_sql = cur.fetchone()
-            response = make_response(f"{dict(color_sql)}", 200)
+            response = make_response(f"{color_sql}", 200)
     return response
 
 
